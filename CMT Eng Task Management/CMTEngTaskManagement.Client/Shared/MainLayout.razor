@@ -1,0 +1,54 @@
+@inherits LayoutView
+
+<div class="page">
+    <main>
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+<style>
+    .page {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+    }
+
+    main {
+        flex: 1;
+    }
+
+    #blazor-error-ui {
+        background: lightyellow;
+        bottom: 0;
+        box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+        display: none;
+        left: 0;
+        padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+        position: fixed;
+        width: 100%;
+        z-index: 1000;
+    }
+
+    #blazor-error-ui .dismiss {
+        cursor: pointer;
+        position: absolute;
+        right: 0.75rem;
+        top: 0.5rem;
+    }
+
+    .blazor-error-boundary {
+        background: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iNDkiIHZpZXdCb3g9IjAgMCA1NiA0OSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEzLjUgNi41TDIwLjUgMEwyNy41IDYuNUwzNC41IDBMNDEuNTUgNi41TDQxLjU1IDEzLjVMMzQuNSAyMEwyNy41IDI2LjVMMjAuNSAyMEwxMy41IDEzLjVMMTMuNSA2LjVaIiBmaWxsPSIjMUYyOTM3IiBmaWxsLW9wYWNpdHk9IjAuMDQiLz4KPC9zdmc+) no-repeat 1rem/1.8rem, #b32121;
+        padding: 1rem 1rem 1rem 3.7rem;
+        color: white;
+    }
+
+    .blazor-error-boundary::after {
+        content: "An error has occurred."
+    }
+</style>

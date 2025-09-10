@@ -1,0 +1,637 @@
+@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@using CMTEngTaskManagement.Shared.DTOs
+@using CMTEngTaskManagement.Client.Services
+@using System.Security.Claims
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ITaskService TaskService
+@inject NavigationManager Navigation
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+<PageTitle>Task Management Dashboard</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-2 col-lg-2 sidebar p-0">
+            <div class="p-4">
+                <h3 class="text-center mb-4">
+                    <i class="fas fa-plane me-2"></i>Ethiopia Airlines
+                </h3>
+
+                <ul class="nav flex-column mt-4">
+                    @if (currentUser?.Role != "Customer")
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link @(IsCurrentPage("/") ? "active" : "")" href="/">
+                                <i class="fas fa-home"></i> Current Tasks
+                            </a>
+                        </li>
+                    }
+                    <li class="nav-item">
+                        <a class="nav-link @(IsCurrentPage("/completed") ? "active" : "")" href="/completed">
+                            <i class="fas fa-check-double"></i> Completed Tasks
+                        </a>
+                    </li>
+                    @if (CanCreateTasks())
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" @onclick="ShowCreateTaskModal">
+                                <i class="fas fa-plus-circle"></i> Create Task
+                            </a>
+                        </li>
+                    }
+                    @if (CanAccessEmployeeManagement())
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link" href="/employee-management">
+                                <i class="fas fa-users-cog"></i> Employee Management
+                            </a>
+                        </li>
+                    }
+                    @if (CanAccessPerformance())
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link" href="/performance">
+                                <i class="fas fa-chart-line"></i> Performance
+                            </a>
+                        </li>
+                    }
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" @onclick="ShowHelpModal">
+                            <i class="fas fa-question-circle"></i> Help
+                        </a>
+                    </li>
+                    <li class="nav-item mt-4">
+                        <a class="nav-link" href="#" @onclick="Logout">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-10 col-lg-10">
+            <!-- Header -->
+            <div class="header">
+                <div class="container-fluid">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h4 class="mb-0">Task Management Dashboard</h4>
+                        </div>
+                        <div class="col-md-6 d-flex justify-content-end">
+                            <div class="d-flex align-items-center">
+                                <!-- User Profile Dropdown -->
+                                <div class="dropdown">
+                                    <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" 
+                                       data-bs-toggle="dropdown" aria-expanded="false">
+                                        <div class="profile-picture-container">
+                                            @if (!string.IsNullOrEmpty(currentUser?.ProfilePicturePath))
+                                            {
+                                                <img src="@currentUser.ProfilePicturePath" alt="Profile Picture">
+                                            }
+                                            else
+                                            {
+                                                <i class="fas fa-user-circle"></i>
+                                            }
+                                            <span class="profile-badge"></span>
+                                        </div>
+                                        <div class="ms-2 d-none d-sm-block">
+                                            <strong>@currentUser?.FullName</strong>
+                                            <div class="small text-muted">@FormatRole(currentUser?.Role)</div>
+                                        </div>
+                                    </a>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow rounded-lg">
+                                        <li><a class="dropdown-item" href="/profile"><i class="fas fa-user me-2"></i> My Profile</a></li>
+                                        <li><a class="dropdown-item" href="#" @onclick="ShowSettingsModal"><i class="fas fa-cog me-2"></i> Settings</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" href="#" @onclick="Logout"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="container-fluid py-4">
+                <!-- Welcome Message -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h5 class="card-title mb-1">Welcome back, @currentUser?.FullName!</h5>
+                                        <p class="text-muted mb-0">You are logged in as @FormatRole(currentUser?.Role)@(string.IsNullOrEmpty(currentUser?.ShopName) ? "" : $" - {currentUser.ShopName}")</p>
+                                    </div>
+                                    <div class="text-end">
+                                        <small class="text-muted">@DateTime.Now.ToString("MMMM dd, yyyy")</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Metrics Cards -->
+                @if (ShowPerformanceMetrics())
+                {
+                    <div class="row">
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="card metric-card bg-success">
+                                <h5>Completion Rate</h5>
+                                <h2>95.2%</h2>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="card metric-card bg-info">
+                                <h5>Avg. Delay</h5>
+                                <h2>1.3 days</h2>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="card metric-card bg-primary">
+                                <h5>Tasks Completed</h5>
+                                <h2>@completedTasksCount</h2>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="card metric-card bg-warning">
+                                <h5>Pending Tasks</h5>
+                                <h2>@pendingTasksCount</h2>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Task List -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center py-3">
+                                <h5 class="mb-0">
+                                    @(viewCompleted ? "Completed Tasks" : "Current Active Tasks")
+                                </h5>
+                                @if (CanCreateTasks() && !viewCompleted)
+                                {
+                                    <button class="btn btn-primary rounded-pill shadow-sm" @onclick="ShowCreateTaskModal">
+                                        <i class="fas fa-plus me-2"></i> New Task
+                                    </button>
+                                }
+                            </div>
+                            <div class="card-body">
+                                <!-- Search and Filter Controls -->
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" placeholder="Search by Serial, Part Number, or Description" 
+                                                   @bind="searchTerm" @onkeypress="@(async (e) => { if (e.Key == "Enter") await SearchTasks(); })">
+                                            <button class="btn btn-primary" type="button" @onclick="SearchTasks">
+                                                <i class="fas fa-search"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <select class="form-select" @bind="selectedSortBy" @onchange="SortTasks">
+                                            <option value="priority_desc">Priority (High to Low)</option>
+                                            <option value="priority_asc">Priority (Low to High)</option>
+                                            <option value="newest">Newest First</option>
+                                            <option value="oldest">Oldest First</option>
+                                            <option value="estimated_asc">Est. Date (Ascending)</option>
+                                            <option value="estimated_desc">Est. Date (Descending)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="d-flex gap-2">
+                                            <button class="btn @(viewCompleted ? "btn-outline-primary" : "btn-primary")" 
+                                                    @onclick="() => ToggleView(false)">
+                                                Current
+                                            </button>
+                                            <button class="btn @(viewCompleted ? "btn-primary" : "btn-outline-primary")" 
+                                                    @onclick="() => ToggleView(true)">
+                                                Completed
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tasks Table -->
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Task ID</th>
+                                                <th>Part Number</th>
+                                                <th>Description</th>
+                                                <th>Category</th>
+                                                <th>Status</th>
+                                                <th>Engineer</th>
+                                                <th>Priority</th>
+                                                <th>Target Date</th>
+                                                <th>Created By</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @if (tasks.Any())
+                                            {
+                                                @foreach (var task in tasks)
+                                                {
+                                                    <tr class="@(task.IsOverdue ? "task-overdue" : "")">
+                                                        <td>
+                                                            TC-@task.TaskId
+                                                            @if (task.ShowRevisionAlert)
+                                                            {
+                                                                <i class="fas fa-exclamation-triangle text-warning blinking-alert ms-1" title="Important Update/Revision Alert"></i>
+                                                            }
+                                                        </td>
+                                                        <td>@task.PartNumber</td>
+                                                        <td>
+                                                            @(task.Description.Length > 50 ? task.Description.Substring(0, 50) + "..." : task.Description)
+                                                            @if (task.IsDuplicate)
+                                                            {
+                                                                <span class="badge bg-danger ms-2" title="@task.DuplicateJustification">Duplicate!</span>
+                                                            }
+                                                        </td>
+                                                        <td><span class="task-tag category">@task.CategoryName</span></td>
+                                                        <td>
+                                                            <span class="status-badge status-@task.Status.ToLower().Replace(" ", "-")">
+                                                                @task.Status
+                                                            </span>
+                                                            @if (!string.IsNullOrEmpty(task.AmendmentStatus))
+                                                            {
+                                                                <span class="badge bg-info mt-1 d-block" title="Amendment Status">
+                                                                    @task.AmendmentStatus
+                                                                    @if (task.AmendmentStatus == "ForwardedToDirector" && !string.IsNullOrEmpty(task.TlReviewerName))
+                                                                    {
+                                                                        <text>(by @task.TlReviewerName)</text>
+                                                                    }
+                                                                </span>
+                                                            }
+                                                        </td>
+                                                        <td>@task.AssignedEngineer.Replace(",", ", ")</td>
+                                                        <td>
+                                                            <span class="badge @GetPriorityBadgeClass(task.PriorityLevelName)">
+                                                                @task.PriorityLevelName
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            @(task.TargetCompletionDate?.ToString("yyyy-MM-dd") ?? "N/A")
+                                                            @if (task.IsOverdue)
+                                                            {
+                                                                <i class="fas fa-exclamation-circle text-danger ms-1" title="This task is overdue!"></i>
+                                                            }
+                                                        </td>
+                                                        <td>@task.CreatorName</td>
+                                                        <td>
+                                                            <div class="btn-group">
+                                                                <button class="btn btn-sm btn-info text-white" title="View Details" 
+                                                                        @onclick="() => ViewTaskDetails(task.TaskId)">
+                                                                    <i class="fas fa-eye"></i>
+                                                                </button>
+                                                                @if (CanUpdateTask(task))
+                                                                {
+                                                                    <button class="btn btn-sm btn-primary" title="Update Task" 
+                                                                            @onclick="() => ShowUpdateTaskModal(task)">
+                                                                        <i class="fas fa-edit"></i>
+                                                                    </button>
+                                                                }
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <tr>
+                                                    <td colspan="10" class="text-center p-4 text-muted">No tasks found.</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    :root {
+        --primary: #5E8F4D;
+        --secondary: #48723C;
+        --success: #4ade80;
+        --warning: #f97316;
+        --info: #3b82f6;
+        --light: #f8f9fa;
+        --dark: #212529;
+    }
+
+    body {
+        background-color: #f5f9ff;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .sidebar {
+        background: linear-gradient(180deg, var(--primary), var(--secondary));
+        min-height: 100vh;
+        color: white;
+        box-shadow: 3px 0 10px rgba(0,0,0,0.1);
+        position: sticky;
+        top: 0;
+        left: 0;
+        z-index: 1000;
+    }
+
+    .nav-link {
+        color: rgba(255,255,255,0.8);
+        border-radius: 5px;
+        margin-bottom: 5px;
+        transition: all 0.3s;
+        padding: 10px 15px;
+    }
+
+    .nav-link:hover, .nav-link.active {
+        background: rgba(255,255,255,0.1);
+        color: white;
+    }
+
+    .header {
+        background-color: white;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        padding: 0.75rem 0;
+        position: sticky;
+        top: 0;
+        z-index: 999;
+    }
+
+    .card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        margin-bottom: 25px;
+    }
+
+    .metric-card {
+        text-align: center;
+        padding: 1.5rem;
+        border-radius: 12px;
+        color: white;
+        transition: transform 0.2s ease-in-out;
+    }
+
+    .metric-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .bg-success { background: linear-gradient(45deg, #4ade80, #22c55e); }
+    .bg-warning { background: linear-gradient(45deg, #f97316, #f59e0b); }
+    .bg-info { background: linear-gradient(45deg, #3b82f6, #60a5fa); }
+    .bg-primary { background: linear-gradient(45deg, var(--primary), var(--secondary)); }
+
+    .status-badge {
+        padding: 5px 14px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .status-pending { background-color: #fef3c7; color: #d97706; }
+    .status-inprogress { background-color: #dbeafe; color: #1d4ed8; }
+    .status-completed { background-color: #dcfce7; color: #15803d; }
+    .status-blocked { background-color: #fee2e2; color: #b91c1c; }
+    .status-onhold { background-color: #fce7f3; color: #c026d9; }
+
+    .task-tag {
+        padding: 0.4rem 0.8rem;
+        border-radius: 15px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        background: #e0e7ff;
+        color: var(--primary);
+        display: inline-block;
+        white-space: nowrap;
+        margin: 2px;
+    }
+
+    .task-overdue {
+        background-color: #fff2f2 !important;
+        border-left: 5px solid #dc3545;
+    }
+
+    .profile-picture-container {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        overflow: hidden;
+        background-color: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .profile-picture-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .profile-badge {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 14px;
+        height: 14px;
+        background-color: #4ade80;
+        border-radius: 50%;
+        border: 2px solid white;
+        transform: translate(25%, 25%);
+        z-index: 10;
+    }
+
+    .profile-picture-container .fa-user-circle {
+        font-size: 2.5rem;
+        color: var(--primary);
+    }
+
+    @keyframes blink-animation {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+    }
+
+    .blinking-alert {
+        animation: blink-animation 1s infinite;
+    }
+</style>
+
+@code {
+    private UserDto? currentUser;
+    private List<TaskDto> tasks = new();
+    private string searchTerm = string.Empty;
+    private string selectedSortBy = "priority_desc";
+    private bool viewCompleted = false;
+    private int completedTasksCount = 0;
+    private int pendingTasksCount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            currentUser = new UserDto
+            {
+                UserId = int.Parse(authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0"),
+                Username = authState.User.FindFirst(ClaimTypes.Name)?.Value ?? "",
+                Email = authState.User.FindFirst(ClaimTypes.Email)?.Value ?? "",
+                FullName = authState.User.FindFirst("FullName")?.Value ?? "",
+                Role = authState.User.FindFirst(ClaimTypes.Role)?.Value ?? "",
+                ShopId = int.TryParse(authState.User.FindFirst("ShopId")?.Value ?? "", out var shopId) ? shopId : null
+            };
+
+            await LoadTasks();
+        }
+        else
+        {
+            Navigation.NavigateTo("/login", replace: true);
+        }
+    }
+
+    private async Task LoadTasks()
+    {
+        var filter = new TaskFilterRequest
+        {
+            Search = searchTerm,
+            ViewCompleted = viewCompleted,
+            SortBy = selectedSortBy
+        };
+
+        var taskList = await TaskService.GetTasksAsync(filter);
+        tasks = taskList.ToList();
+
+        // Update counts
+        completedTasksCount = tasks.Count(t => t.Status == "Completed");
+        pendingTasksCount = tasks.Count(t => t.Status != "Completed");
+
+        StateHasChanged();
+    }
+
+    private async Task SearchTasks()
+    {
+        await LoadTasks();
+    }
+
+    private async Task SortTasks()
+    {
+        await LoadTasks();
+    }
+
+    private async Task ToggleView(bool showCompleted)
+    {
+        viewCompleted = showCompleted;
+        await LoadTasks();
+    }
+
+    private bool IsCurrentPage(string page)
+    {
+        var currentPath = new Uri(Navigation.Uri).AbsolutePath;
+        return currentPath.Equals(page, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string FormatRole(string? role)
+    {
+        return role switch
+        {
+            "TeamLeader" => "Team Leader",
+            "CustomerPersonnel" => "Customer Personnel",
+            "ShopTL" => "Shop Team Leader",
+            _ => role ?? ""
+        };
+    }
+
+    private bool CanCreateTasks()
+    {
+        return currentUser?.Role is "TeamLeader" or "Director" or "CustomerPersonnel" or "ShopTL";
+    }
+
+    private bool CanAccessEmployeeManagement()
+    {
+        return currentUser?.Role is "TeamLeader" or "Director" or "Engineer";
+    }
+
+    private bool CanAccessPerformance()
+    {
+        return currentUser?.Role is "TeamLeader" or "Director";
+    }
+
+    private bool ShowPerformanceMetrics()
+    {
+        return currentUser?.Role is "TeamLeader" or "Director" or "Engineer";
+    }
+
+    private bool CanUpdateTask(TaskDto task)
+    {
+        if (currentUser == null) return false;
+
+        return currentUser.Role switch
+        {
+            "TeamLeader" => task.Status != "Completed",
+            "Director" => task.Status != "Completed" || (task.Status == "Completed" && task.AmendmentRequest && task.AmendmentStatus == "ForwardedToDirector"),
+            "Engineer" => task.Status != "Completed" && task.AssignedEngineer.Contains(currentUser.FullName),
+            "CustomerPersonnel" => task.Status != "Completed" && task.CreatorName == currentUser.FullName,
+            _ => false
+        };
+    }
+
+    private string GetPriorityBadgeClass(string priority)
+    {
+        return priority switch
+        {
+            "Critical" or "High" => "bg-danger",
+            "Medium" => "bg-warning",
+            "Low" => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+
+    private void ViewTaskDetails(int taskId)
+    {
+        Navigation.NavigateTo($"/task/{taskId}");
+    }
+
+    private void ShowCreateTaskModal()
+    {
+        // This would show a create task modal - implement as needed
+        Navigation.NavigateTo("/task/create");
+    }
+
+    private void ShowUpdateTaskModal(TaskDto task)
+    {
+        // This would show an update task modal - implement as needed
+        Navigation.NavigateTo($"/task/{task.TaskId}/edit");
+    }
+
+    private void ShowSettingsModal()
+    {
+        // Show settings modal - implement as needed
+    }
+
+    private void ShowHelpModal()
+    {
+        // Show help modal - implement as needed
+    }
+
+    private async Task Logout()
+    {
+        var authService = Navigation.ToAbsoluteUri("/").Host;
+        await ((IAuthenticationService)Navigation.Services.GetService(typeof(IAuthenticationService))!).LogoutAsync();
+        Navigation.NavigateTo("/login", replace: true);
+    }
+}

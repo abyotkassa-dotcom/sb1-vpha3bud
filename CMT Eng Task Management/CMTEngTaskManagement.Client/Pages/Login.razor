@@ -1,0 +1,241 @@
+@page "/login"
+@using CMTEngTaskManagement.Shared.DTOs
+@using CMTEngTaskManagement.Client.Services
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Login - Ethiopia Airlines</PageTitle>
+
+<div class="login-container">
+    <div class="text-center mb-4">
+        <h2 class="mb-3">
+            <i class="fas fa-plane me-2"></i>Ethiopia Airlines
+        </h2>
+        <p class="text-muted">CMT Eng Task Management System</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="ClearError" aria-label="Close"></button>
+        </div>
+    }
+
+    <EditForm Model="@loginRequest" OnValidSubmit="@HandleLogin">
+        <DataAnnotationsValidator />
+        
+        <div class="mb-3">
+            <label for="username" class="form-label visually-hidden">Username</label>
+            <InputText @bind-Value="loginRequest.Username" class="form-control" placeholder="Username" id="username" required />
+            <ValidationMessage For="@(() => loginRequest.Username)" />
+        </div>
+        
+        <div class="mb-3 password-input-group">
+            <label for="password" class="form-label visually-hidden">Password</label>
+            <InputText type="@passwordInputType" @bind-Value="loginRequest.Password" class="form-control" placeholder="Password" id="password" required />
+            <span class="password-toggle" @onclick="TogglePasswordVisibility">
+                <i class="fas @passwordToggleIcon"></i>
+            </span>
+            <ValidationMessage For="@(() => loginRequest.Password)" />
+        </div>
+        
+        <div class="d-grid">
+            <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                }
+                Login
+            </button>
+        </div>
+    </EditForm>
+</div>
+
+<footer class="footer">
+    <p>
+        Copyright &copy; @DateTime.Now.Year CMT Integrated Dashboard. All rights reserved.
+        <img src="https://t4.ftcdn.net/jpg/05/30/79/01/360_F_530790159_TiJU0rF2IPB6PtYIuHxkMk70aVSK11qF.jpg" alt="Footer Image">
+    </p>
+</footer>
+
+<style>
+    :root {
+        --primary: #5E8F4D;
+        --secondary: #4D7A3E;
+    }
+
+    body {
+        background-color: #f5f9ff;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        min-height: 95vh;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 20px;
+    }
+
+    .login-container {
+        background-color: #ffffff;
+        padding: 40px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 400px;
+        text-align: center;
+        margin: auto;
+    }
+
+    .login-container h2 {
+        color: var(--primary);
+        margin-bottom: 25px;
+        font-weight: bold;
+    }
+
+    .form-control {
+        border-radius: 8px;
+        padding: 12px 15px;
+        border: 1px solid #ddd;
+    }
+
+    .form-control:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 0.25rem rgba(94, 143, 77, 0.25);
+    }
+
+    .btn-primary {
+        background-color: var(--primary);
+        border-color: var(--primary);
+        padding: 12px;
+        border-radius: 8px;
+        font-weight: bold;
+        transition: background-color 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        background-color: var(--secondary);
+        border-color: var(--secondary);
+    }
+
+    .password-input-group {
+        position: relative;
+    }
+
+    .password-toggle {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+        color: #6c757d;
+    }
+
+    .footer {
+        text-align: center;
+        font-size: 0.8rem;
+        color: #6c757d;
+        width: 100%;
+        padding: 15px 0;
+        margin-top: 30px;
+    }
+
+    .footer p {
+        margin: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .footer img {
+        width: 35px;
+        height: auto;
+        margin-left: 5px;
+        margin-top: 5px;
+    }
+
+    @media (max-width: 576px) {
+        .login-container {
+            padding: 25px;
+            margin: 10px;
+        }
+
+        .login-container h2 {
+            font-size: 1.8rem;
+        }
+
+        .form-control {
+            padding: 10px 12px;
+        }
+
+        .btn-primary {
+            padding: 10px;
+        }
+
+        .footer {
+            font-size: 0.75rem;
+            padding: 10px;
+            margin-top: 20px;
+        }
+    }
+</style>
+
+@code {
+    private LoginRequest loginRequest = new();
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+    private string passwordInputType = "password";
+    private string passwordToggleIcon = "fa-eye";
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var response = await AuthService.LoginAsync(loginRequest);
+
+            if (response.Success)
+            {
+                Navigation.NavigateTo("/", replace: true);
+            }
+            else
+            {
+                errorMessage = response.Message ?? "Login failed. Please check your credentials.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "A network error occurred. Please try again.";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        if (passwordInputType == "password")
+        {
+            passwordInputType = "text";
+            passwordToggleIcon = "fa-eye-slash";
+        }
+        else
+        {
+            passwordInputType = "password";
+            passwordToggleIcon = "fa-eye";
+        }
+    }
+
+    private void ClearError()
+    {
+        errorMessage = string.Empty;
+    }
+}
